@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='D-CODE',
+    name='D_CODE',
     version='0.1',
     packages=find_packages(),
     install_requires=['scikit-learn>=0.22.1',
