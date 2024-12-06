@@ -1,5 +1,5 @@
 # D-CODE x MD-Loop
-A revised version of the original D-CODE repository, tailored to serve as an auxiliary method for MD-Loop. This implementation adapts the original methodology to integrate seamlessly with MD-Loop, which depends on this repository for specific functionalities.
+A revised version of the original D-CODE repository, tailored to serve as an auxiliary method for MD-Loop. This implementation adapts the original D-CODE methodology to integrate seamlessly with MD-Loop, which depends on this repository for specific functionalities.
 
 
 ## D-CODE-ICLR-2022
