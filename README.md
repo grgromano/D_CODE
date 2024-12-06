@@ -1,14 +1,17 @@
-# D-CODE-ICLR-2022
+# D-CODE x MD-Loop
+A revised version of the original D-CODE repository, tailored to serve as an auxiliary method for MD-Loop. This implementation adapts the original methodology to integrate seamlessly with MD-Loop, which depends on this repository for specific functionalities.
+
+
+## D-CODE-ICLR-2022
 Code for [D-CODE: Discovering Closed-form ODEs from Observed Trajectories (ICLR 2022)](https://openreview.net/forum?id=wENMvIsxNN).
 
 
-
-## Installation
+### Installation
 
 Clone this repository and all submodules (e.g. using `git clone --recursive`).
 Python 3.6+ is recommended. Install dependencies as per [`requirements.txt`](./requirements.txt).
 
-## Replicating Experiments
+### Replicating Experiments
 
 Shell scripts to replicate the experiments can be found in [`run_all.sh`](./run_all.sh).
 
@@ -20,7 +23,7 @@ You may also run the experiment steps individually, see [`run_all.sh`](./run_all
 To then produce the figures, run the Jupyter notebooks `Result Summary.ipynb`, `Fig3.ipynb`, `Fig5.ipynb`, `rebuttal.ipynb`.
 
 
-## Citing
+### Citing
 
 If you use this code, please cite the associated paper:
 
