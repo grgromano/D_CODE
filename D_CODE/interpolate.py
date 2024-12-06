@@ -3,10 +3,10 @@ import abc
 from scipy.interpolate import BSpline
 from sklearn.linear_model import LassoCV
 from scipy.linalg import lstsq
-from tvregdiff.tvregdiff import TVRegDiff
-import gppca
-from config import get_interpolation_config
-from integrate import generate_grid
+from .tvregdiff.tvregdiff import TVRegDiff
+from . import gppca
+from .config import get_interpolation_config
+from .integrate import generate_grid
 from derivative import dxdt
 
 
@@ -45,8 +45,8 @@ def get_ode_data_noise_free(yt, x_id, dg, ode):
     return ode_data, X_ph, y_ph, t_new
 
 
-def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
-    t = dg.solver.t
+def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None, T0=0):
+    t = dg.solver.t[int(T0*dg.freq):]
     noise_sigma = dg.noise_sigma
     freq = dg.freq
 
@@ -74,12 +74,16 @@ def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
         pca = gppca.GPPCA0(r, Y, t, noise_sigma, sigma_out=ode.std_base, sigma_in=sigma_in)
 
         t_new, weight = generate_grid(dg.T, freq_int)
+        t_new = t_new[int(T0*freq_int):] 
+        weight = weight[int(T0*freq_int):]
+
         X_sample = pca.get_predictive(new_sample=1, t_new=t_new)
         X_sample = X_sample.reshape(len(t_new), X_sample.size // len(t_new), 1)
         X_sample_list.append(X_sample)
         pca_list.append(pca)
 
     X_sample = np.concatenate(X_sample_list, axis=-1)
+    #print(np.shape(X_sample))
     # check smaller than zero
     if ode.positive:
         X_sample[X_sample <= 1e-6] = 1e-6
@@ -93,11 +97,14 @@ def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
     else:
         basis = config_basis
 
-    basis_func = basis(dg.T, n_basis)
+    
+    basis_func = basis(dg.T-T0, n_basis)
     g = basis_func.design_matrix(t_new, derivative=False)
 
     # compute c using a much larger grid
     t_new_c, weight_c = generate_grid(dg.T, 1000)
+    t_new_c = t_new_c[int(T0*1000):]
+    weight_c = weight_c[int(T0*1000):]
     g_dot = basis_func.design_matrix(t_new_c, derivative=True)
     Xi = pca_list[x_id].get_predictive(new_sample=1, t_new=t_new_c)
     Xi = Xi.reshape(len(t_new_c), Xi.size // len(t_new_c))
@@ -115,9 +122,80 @@ def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
     return ode_data, X_ph, y_ph, t_new
 
 
-def num_dff_tuning(yt, dg, alg):
-    yt0 = dg.xt
-    dxdt_hat = (yt0[1:, :, :] - yt0[:-1, :, :]) / (dg.solver.t[1:] - dg.solver.t[:-1])[:, None, None]
+# def get_ode_data(yt, x_id, dg, ode, config_n_basis=None, config_basis=None):
+#     t = dg.solver.t
+#     noise_sigma = dg.noise_sigma
+#     freq = dg.freq
+
+#     if noise_sigma == 0:
+#         return get_ode_data_noise_free(yt, x_id, dg, ode)
+
+#     X_sample_list = list()
+#     pca_list = []
+#     # for each dimension
+#     assert yt.shape[-1] > 0
+#     for d in range(yt.shape[-1]):
+#         config = get_interpolation_config(ode, d)
+#         Y = yt[:, :, d]
+#         r = config['r']
+#         if r < 0:
+#             r = Y.shape[1]
+
+#         if 'sigma_in_mul' in config.keys():
+#             sigma_in_mul = config['sigma_in_mul']
+#             sigma_in = sigma_in_mul / freq
+#         else:
+#             sigma_in = config['sigma_in']
+#         freq_int = config['freq_int']
+
+#         pca = gppca.GPPCA0(r, Y, t, noise_sigma, sigma_out=ode.std_base, sigma_in=sigma_in)
+
+#         t_new, weight = generate_grid(dg.T, freq_int)
+#         X_sample = pca.get_predictive(new_sample=1, t_new=t_new)
+#         X_sample = X_sample.reshape(len(t_new), X_sample.size // len(t_new), 1)
+#         X_sample_list.append(X_sample)
+#         pca_list.append(pca)
+
+#     X_sample = np.concatenate(X_sample_list, axis=-1)
+#     # check smaller than zero
+#     if ode.positive:
+#         X_sample[X_sample <= 1e-6] = 1e-6
+#     config = get_interpolation_config(ode, x_id)
+#     if config_n_basis is None:
+#         n_basis = config['n_basis']
+#     else:
+#         n_basis = config_n_basis
+#     if config_basis is None:
+#         basis = config['basis']
+#     else:
+#         basis = config_basis
+
+#     basis_func = basis(dg.T, n_basis)
+#     g = basis_func.design_matrix(t_new, derivative=False)
+
+#     # compute c using a much larger grid
+#     t_new_c, weight_c = generate_grid(dg.T, 1000)
+#     g_dot = basis_func.design_matrix(t_new_c, derivative=True)
+#     Xi = pca_list[x_id].get_predictive(new_sample=1, t_new=t_new_c)
+#     Xi = Xi.reshape(len(t_new_c), Xi.size // len(t_new_c))
+#     c = (Xi * weight_c[:, None]).T @ g_dot
+
+#     ode_data = {
+#         'x_hat': X_sample, # smoothed data, dimensions: (81, 50, 1)
+#         'g': g, # basis functions, dimensions: (81, 50) -> testing functions
+#         'c': c, # coefficients, dimensions: (50, 50)
+#         'weights': weight # weights, dimensions: (81,)
+#     }
+#     X_ph = np.zeros((X_sample.shape[1], X_sample.shape[2])) # placeholder, dimensions: (50, 1)
+#     y_ph = np.zeros(X_sample.shape[1]) # placeholder, dimensions: (50,)
+
+#     return ode_data, X_ph, y_ph, t_new
+
+
+def num_dff_tuning(yt, dg, alg, T0=0):
+    yt0 = dg.xt[int(T0*dg.freq):, :, :]
+    aux = dg.solver.t[int(T0*dg.freq):]
+    dxdt_hat = (yt0[1:, :, :] - yt0[:-1, :, :]) / (aux[1:] - aux[:-1])[:, None, None]
 
     y_single = yt[:, 0, 0]
 
@@ -137,9 +215,32 @@ def num_dff_tuning(yt, dg, alg):
     ind = mse.index(min(mse))
     return grid[ind]
 
+# def num_dff_tuning(yt, dg, alg, T0=0):
+#     yt0 = dg.xt
+#     dxdt_hat = (yt0[1:, :, :] - yt0[:-1, :, :]) / (dg.solver.t[1:] - dg.solver.t[:-1])[:, None, None]
 
-def num_diff(yt, dg, alg):
-    alpha = num_dff_tuning(yt, dg, alg)
+#     y_single = yt[:, 0, 0]
+
+#     grid = [0, 0.001, 0.01, 0.1, 1, 10, 100, 1000]
+#     mse = list()
+#     for alpha in grid:
+#         if alg == 'tv':
+#             res = TVRegDiff(y_single, itern=200, alph=alpha, u0=None, scale='small', dx=dg.solver.dt,
+#                             plotflag=False, precondflag=False,
+#                             diffkernel='sq', cgtol=1e-3, cgmaxit=100)
+#             print(np.shape(res))
+#         elif alg == 'spline':
+#             res = dxdt(y_single, dg.solver.t, kind="spline", s=alpha)
+#         else:
+#             raise ValueError
+#         mse.append(np.sum((dxdt_hat[:, 0, 0] - res[:-1]) ** 2))
+
+#     ind = mse.index(min(mse))
+#     return grid[ind]
+
+
+def num_diff(yt, dg, alg, T0=0):
+    alpha = num_dff_tuning(yt, dg, alg, T0)
 
     T, B, D = yt.shape
 

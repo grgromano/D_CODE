@@ -38,6 +38,8 @@ def get_ode(ode_name, param):
         ode = LogisticODE_k(param)
     elif ode_name == 'LogisticODE_a':
         ode = LogisticODE_a(param)
+    elif ode_name == 'OscillatingLogisticODE':
+        ode = OscillatingLogisticODE(param)
     elif ode_name == 'HillODE':
         ode = HillODE(param)
     elif ode_name == 'SirODE':
@@ -64,6 +66,12 @@ def get_ode(ode_name, param):
         ode = SelkovODE_rho_06(param)
     elif ode_name == 'SelkovODE_rho_09':
         ode = SelkovODE_rho_09(param)
+    elif ode_name == 'Oscillating_SelkovODE':
+        ode = Oscillating_SelkovODE(param)
+    elif ode_name == 'OscillatingSelkovODE':
+        ode = OscillatingSelkovODE(param)
+    elif ode_name == 'OscillatingSelkovODE_d':
+        ode = OscillatingSelkovODE_d(param)
     elif ode_name == 'Brusselator':
         ode = Brusselator(param)
     elif ode_name == 'FHN':
@@ -437,9 +445,9 @@ class GompertzODE(ODE):
         self.a, self.b = self.param
         self.init_high = 0.01
         if self.has_coef:
-            self.T = 4
+            self.T = 8 # 5 # 8 # 4
         else:
-            self.T = 5
+            self.T = 8 # 5
         self.name = 'GompertzODE'
         self.std_base = 0.23405202469895242
 
@@ -482,7 +490,7 @@ class GompertzODE_par_a(ODE):
         self.init_low = [0.0, 1.0] 
 
         self.has_coef = True
-        self.T = 4 # entra nel case giusto in get_expression()
+        self.T = 8 # 4 # entra nel case giusto in get_expression()
     
         self.name = 'GompertzODE_par_a'
         self.std_base = 0.23405202469895242
@@ -530,7 +538,7 @@ class GompertzODE_par_b(ODE):
         self.init_low = [0.0, 1.0] 
 
         self.has_coef = True
-        self.T = 4 # entra nel case giusto in get_expression()
+        self.T = 8 # 4 
     
         self.name = 'GompertzODE_par_b'
         self.std_base = 0.23405202469895242
@@ -577,7 +585,7 @@ class GompertzODE_par_ab(ODE):
         self.init_low = [0.0, 1.0, 1.0] 
 
         self.has_coef = True
-        self.T = 4 # entra nel case giusto in get_expression()
+        self.T = 8 # 4
     
         self.name = 'GompertzODE_par_ab'
         self.std_base = 0.23405202469895242
@@ -623,7 +631,7 @@ class LogisticODE(ODE):
     def __init__(self, param=None):
         super().__init__(1, param)
         self.a, self.k = self.param
-        self.T = 10
+        self.T = 10 
         self.has_coef = True
         self.name = 'LogisticODE'
         self.std_base = 0.31972985438694346
@@ -661,11 +669,11 @@ class LogisticODE_k(ODE):
         super().__init__(2, param)
         self.a = self.param
 
-        self.init_high = [0.1, 0.8] 
+        self.init_high = [0.1, 1.5] 
         self.init_low = [0.0, 0.2]
 
         self.has_coef = True
-        self.T = 10
+        self.T = 10 
     
         self.name = 'LogisticODE_k'
         self.std_base = 0.31972985438694346
@@ -744,6 +752,51 @@ class LogisticODE_a(ODE):
         return new_ode.dx_dt_batch
     
 
+class OscillatingLogisticODE(ODE):
+    """
+    Gompertz
+    https://en.wikipedia.org/wiki/Gompertz_function
+    """
+
+    def __init__(self, param=None):
+        super().__init__(2, param) # t: time, x: state 
+        self.a, self.k = self.param
+        self.init_high = [0.1, 0.0] 
+        self.init_low = [0.0, 0.0] # we force starting from t=0 
+        self.has_coef = True
+        self.T = 30
+        self.name = 'OscillatingLogisticODE'
+        self.std_base = 0.31972985438694346 # RMK. utilizziamo lo stesso valore del generalized logistic model, tove
+
+    def _dx_dt(self, X, t):
+        dxdt = self.a * (1 - np.power(X, self.k)) * X + 0.3*np.sin(2 * np.pi * t) * (1 / (1 + np.exp(-5 * (t - 6))))
+        #dxdt = self.a * X * (1 - X) + self.a * np.sin(self.omega * t)
+        dtdt = 1
+        return [dxdt, dtdt]
+
+    def get_default_param(self):
+        return 1., 0.5 
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        t = var_dict['t']
+        C = var_dict['C']
+        if self.has_coef:
+            eq1 = C * X0 * (1 - X0 ** C) + C * sympy.sin(C * t),  C * X0 - 1 * C * X0**C + C * sympy.sin(C * t), C * X0 - C * X0**C + C * sympy.sin(C * t)
+            eq2 = 1
+        else:
+            eq1 = X0 * (1 - X0) + sympy.sin(t), X0 - 1 * X0**2 + sympy.sin(t), X0 - X0**2 + sympy.sin(t)
+            eq2 = 1
+        return [eq1, eq2]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 2
+        new_ode = OscillatingLogisticODE(theta)
+        return new_ode.dx_dt_batch
+
+    
+    
 class HillODE(ODE):
     """
     Hill_equation_(biochemistry)
@@ -754,6 +807,7 @@ class HillODE(ODE):
         super().__init__(2, param)
         self.n, self.k, self.ka, self.ky = self.param
         self.init_high = 10.
+        self.name = 'HillODE'
 
     def _dx_dt(self, X, Y):
         dxdt = self.k * np.power(Y, self.n) / (self.ka + np.power(Y, self.n))
@@ -984,6 +1038,8 @@ class SelkovODE(ODE):
         self.name = 'SelkovODE'
         self.std_base = 0.5641061
         self.T = 15
+        self.init_high = [0.1, 0.1]
+        self.init_low = [0, 0]
 
     def get_default_param(self):
         return 0.75, 0.1
@@ -1305,6 +1361,140 @@ class SelkovODE_rho_09(ODE):
         new_ode = SelkovODE_rho_09(theta)
         return new_ode.dx_dt_batch
     
+
+class Oscillating_SelkovODE(ODE):
+    """
+    Selkov model for Glycolysis
+    https://services.math.duke.edu/ode-book/xppaut/ch4-selkov.pdf
+    """
+    def __init__(self, param=None):
+        super().__init__(2, param)
+        self.rho, self.sigma = self.param
+        self.has_coef = True
+        self.name = 'Oscillating_SelkovODE'
+        self.std_base = 0.5641061
+        self.T = 50 # 30 !!! 
+        self.init_high = [0.1, 0.1]
+        self.init_low = [0, 0]
+
+    def get_default_param(self):
+        return 0.75, 0.1 # 
+
+    def _dx_dt(self, x, y):
+        dxdt = self.rho - self.sigma * x - x * y * y + 0.3*np.sin(2 * np.pi * (x + y))
+        dydt = -1 * y + self.sigma * x + x * y * y 
+        return [dxdt, dydt]
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        X1 = var_dict['X1']
+        C = var_dict['C']
+        if self.has_coef:
+            eq1 = C - C * X0 - X0 * X1 * X1
+            eq2 = -1 * X1 + C * X0 + X0 * X1 * X1
+        else:
+            eq1 = 1 - X0 - X0 * X1 * X1
+            eq2 = -1 * X1 + X0 + X0 * X1 * X1
+        return [eq1, eq2]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 2
+        new_ode = Oscillating_SelkovODE(theta)
+        return new_ode.dx_dt_batch
+    
+
+class OscillatingSelkovODE(ODE):
+    """
+    Selkov model for Glycolysis
+    https://services.math.duke.edu/ode-book/xppaut/ch4-selkov.pdf
+    """
+    def __init__(self, param=None):
+        super().__init__(3, param)
+        self.rho, self.sigma = self.param # aggiungere parametri del termine sinusoidale
+        self.has_coef = True
+        self.name = 'OscillatingSelkovODE'
+        self.std_base = 0.5641061
+        self.T = 30 # 15 !!! 
+        self.init_high = [0.1, 0.1, 0.]
+        self.init_low = [0., 0., 0.]
+
+    def get_default_param(self):
+        return 0.75, 0.1 # 
+
+    def _dx_dt(self, x, y, t):
+        dxdt = self.rho - self.sigma * x - x * y * y + 1.0*np.sin(1.0 * np.pi * t)
+        dydt = -1 * y + self.sigma * x + x * y * y 
+        dtdt = 1
+        return [dxdt, dydt, dtdt]
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        X1 = var_dict['X1']
+        X2 = var_dict['X2']
+        C = var_dict['C']
+        if self.has_coef:
+            eq1 = C - C * X0 - X0 * X1 * X1 + C * sympy.sin(C * X2)
+            eq2 = -1 * X1 + C * X0 + X0 * X1 * X1
+            eq3 = 1
+        else:
+            eq1 = 1 - X0 - X0 * X1 * X1 + sympy.sin(X2)
+            eq2 = -1 * X1 + X0 + X0 * X1 * X1
+            eq3 = 1
+        return [eq1, eq2, eq3]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 2
+        new_ode = OscillatingSelkovODE(theta)
+        return new_ode.dx_dt_batch
+
+    
+class OscillatingSelkovODE_d(ODE):
+    """
+    Selkov model for Glycolysis
+    https://services.math.duke.edu/ode-book/xppaut/ch4-selkov.pdf
+    """
+    def __init__(self, param=None):
+        super().__init__(3, param)
+        self.rho, self.sigma = self.param # aggiungere parametri del termine sinusoidale
+        self.has_coef = True
+        self.name = 'OscillatingSelkovODE_d'
+        self.std_base = 0.5641061
+        self.T = 50 # 30 !!! 
+        self.init_high = [0.1, 0.1, 0.]
+        self.init_low = [0., 0., 0.]
+
+    def get_default_param(self):
+        return 0.75, 0.1 # 
+
+    def _dx_dt(self, x, y, t):
+        dxdt = self.rho - self.sigma * x - x * y * y + 1.0*np.sin(1.0 * np.pi * t) * (1 / (1 + np.exp(-1 * (t - 30))))
+        dydt = -1 * y + self.sigma * x + x * y * y 
+        dtdt = 1
+        return [dxdt, dydt, dtdt]
+
+    def get_expression(self):
+        var_dict = self.get_var_dict()
+        X0 = var_dict['X0']
+        X1 = var_dict['X1']
+        X2 = var_dict['X2']
+        C = var_dict['C']
+        if self.has_coef:
+            eq1 = C - C * X0 - X0 * X1 * X1 + C * sympy.sin(C * X2) * (1 / (1 + sympy.exp(-1 * (X2 - C))))
+            eq2 = -1 * X1 + C * X0 + X0 * X1 * X1
+            eq3 = 1
+        else:
+            eq1 = 1 - X0 - X0 * X1 * X1 + sympy.sin(X2) * (1 / (1 + sympy.exp(-1 * X2)))
+            eq2 = -1 * X1 + X0 + X0 * X1 * X1
+            eq3 = 1
+        return [eq1, eq2, eq3]
+
+    def functional_theta(self, theta):
+        assert len(theta) == 2
+        new_ode = OscillatingSelkovODE_d(theta)
+        return new_ode.dx_dt_batch
+
 
 
 class FracODE(ODE):

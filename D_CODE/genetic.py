@@ -16,10 +16,10 @@ from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_X_y, check_array
 
-from _program import _Program
-from fitness import _fitness_map
-from functions import _function_map, _Function
-from utils.gp_utils import _partition_estimators, check_random_state
+from ._program import _Program
+from .fitness import _fitness_map
+from .functions import _function_map, _Function
+from .utils.gp_utils import _partition_estimators, check_random_state
 from sklearn.metrics import root_mean_squared_error
 
 MAX_INT = np.iinfo(np.int32).max
@@ -146,8 +146,8 @@ def get_building_blocks(building_blocks, programs, parsimony_coefficient, X, par
     # search parameters: 
     n_promising = 15 # number of promising promgrams to select
     n_subprograms = 15 # number of subprograms to extract from each promising program
-    max_length = 8 # maximum length of subprograms
-    min_length = 3 # minimum length of subprograms
+    max_length = 6 # maximum length of subprograms
+    min_length = 2 # minimum length of subprograms # !!! DA RIPRISTINARE A 3
     # (RMK. the generation of the search can be changed directly at the function call: if gen == ...)
 
     # select the best n_promising programs:
@@ -156,11 +156,12 @@ def get_building_blocks(building_blocks, programs, parsimony_coefficient, X, par
         promising_programs = [programs[i] for i in np.argsort(fitness)[-n_promising:]]
     else:
         promising_programs = [programs[i] for i in np.argsort(fitness)[:n_promising]]
-    # print(' ')
-    # print('promising programs:')
-    # for program in promising_programs:
-    #     print(program)
-    # print(' ')
+    # !!!
+    print(' ')
+    print('promising programs:')
+    for program in promising_programs:
+        print(program)
+    print(' ')
 
     # extract subprograms from the promising programs:
     subprograms = []
@@ -232,8 +233,16 @@ def get_subprograms(program, X, params, n_subprograms, max_length, min_length):
         if len(subprogram_l) < min_length or len(subprogram_l) > max_length: # filter too short or long subprograms 
             continue
         subprog_list, _, _ = parse_program_to_list(subprogram_l)
-        if subprog_list[0] == 'add' or subprog_list[0] == 'mul' or subprog_list[0] == 'sub': # filter subprograms starting with 'add', 'mul' or 'sub': SINDy will provide linear combinations
+        
+        # STANDARD VERSION:
+        if subprog_list[0] == 'add' or subprog_list[0] == 'mul' or subprog_list[0] == 'sub' or subprog_list[0] == 'neg': # filter subprograms starting with 'add', 'neg', 'mul' or 'sub': SINDy will provide linear combinations
             continue
+        
+        # POLYNOMIAL VERSION:
+        # if subprog_list[0] == 'add' or subprog_list[0] == 'sub' or subprog_list[0] == 'neg': # filter subprograms starting with 'add', 'neg' or 'sub', NOT 'mul'
+        #     continue
+
+
 
         # build the corresponding programs:
         subprogram = _Program(function_set=function_set,
@@ -320,6 +329,8 @@ class SymbolicODE(BaseEstimator):
                  random_state=None):
         if function_set is None:
             function_set = {'add': 1, 'sub': 1, 'mul': 1, 'div': 1}
+        print('Functions set: ', function_set) # !!!
+        print(' ')
         self.population_size = population_size
         self.hall_of_fame = hall_of_fame
         self.n_components = n_components
@@ -602,7 +613,7 @@ class SymbolicODE(BaseEstimator):
             
 
             # At the desired generation, extract the promising building blocks from the generation's programs:
-            if gen==3 or gen==5 or gen==10 or gen==19: 
+            if gen==3 or gen==5 or gen==10 or gen==15 or gen==19: 
                 # print(' ')
                 # print('generation: ', gen)
                 self.building_blocks = get_building_blocks(self.building_blocks, self._programs[gen], parsimony_coefficient, X, params)

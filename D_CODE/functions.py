@@ -10,6 +10,8 @@ Adapted from https://github.com/trevorstephens/gplearn
 
 import numpy as np
 from joblib import wrap_non_picklable_objects
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 __all__ = ['make_function']
 

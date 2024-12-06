@@ -1,7 +1,7 @@
 import numpy as np
-import equations
+from . import equations
 import pickle
-import _program
+from . import _program
 
 class DataGenerator:
     def __init__(self, ode, T, freq, n_sample, noise_sigma, init_low=0., init_high=1., return_list=False):
